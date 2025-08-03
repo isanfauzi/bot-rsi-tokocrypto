@@ -9,7 +9,7 @@ RSI_PERIOD = 14
 RSI_BUY_THRESHOLD = 30
 TP_PERCENT = 0.03
 SL_PERCENT = 0.02
-DELAY_SECONDS = 300
+DELAY_SECONDS = 300  # 5 menit
 
 # Ambil harga dari Tokocrypto
 def get_price_toko(pair):
@@ -73,11 +73,13 @@ def run_bot():
     else:
         print(f"[{datetime.now()}] ⚠️ Data tidak lengkap.")
 
-# Fungsi loop bot untuk dijalankan di thread
+# Looping terus-menerus
 def start_bot():
     print(f"[{datetime.now()}] 🚀 Bot RSI dimulai di background...")
     while True:
         run_bot()
         time.sleep(DELAY_SECONDS)
-if __name__ == '__main__':
-    start_bot()        
+
+# Jalankan langsung
+if __name__ == "__main__":
+    start_bot()
