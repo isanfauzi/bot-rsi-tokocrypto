@@ -3,6 +3,7 @@ import numpy as np
 import time
 from datetime import datetime
 from flask import Flask, jsonify
+
 import threading
 
 # ==== Konfigurasi ====
@@ -12,7 +13,6 @@ RSI_BUY_THRESHOLD = 30
 TP_PERCENT = 0.03
 SL_PERCENT = 0.02
 
-# ==== Flask App ====
 app = Flask(__name__)
 
 # ==== Ambil harga dari Tokocrypto ====
@@ -77,13 +77,23 @@ def run_bot():
     else:
         print(f"[{datetime.now()}] ⚠️ Data tidak lengkap.")
 
-# ==== Endpoint untuk trigger bot ====
+# ==== Endpoint trigger bot ====
 @app.route("/run")
 def trigger_bot():
     threading.Thread(target=run_bot).start()
     return jsonify({"status": "Bot dijalankan", "time": str(datetime.now())})
 
+# ==== Root: jika buka langsung di browser ====
+@app.route("/")
+def homepage():
+    return f"""
+    <h2>🚀 Bot RSI Tokocrypto</h2>
+    <p>Status: Siap dijalankan</p>
+    <p><a href="/run">Jalankan Bot Sekarang</a></p>
+    <p><i>{datetime.now()}</i></p>
+    """
+
 # ==== Jalankan Web Service ====
 if __name__ == "__main__":
-    print(f"[{datetime.now()}] 🌐 Flask Web Service berjalan...")
+    print(f"[{datetime.now()}] 🌐 Web Service aktif...")
     app.run(host="0.0.0.0", port=8080)
