@@ -1,13 +1,13 @@
-import os
+import requests
+import numpy as np
 import time
 import hmac
 import hashlib
-import requests
-import numpy as np
-from dotenv import load_dotenv
+import os
 from datetime import datetime
+from dotenv import load_dotenv
 
-# === Load API dari file .env ===
+# === Load API Key dari .env ===
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 API_SECRET = os.getenv("API_SECRET")
@@ -18,24 +18,24 @@ RSI_PERIOD = 14
 RSI_BUY_THRESHOLD = 30
 TP_PERCENT = 0.03
 SL_PERCENT = 0.02
-DELAY_SECONDS = 300  # 5 menit
+DELAY_SECONDS = 300  # setiap 5 menit
 
 # === Ambil harga dari Tokocrypto ===
 def get_price_toko(pair):
     try:
         url = f"https://api.tokocrypto.com/open/v1/market/ticker/price?symbol={pair}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         data = response.json()
         return float(data["data"]["price"])
     except Exception as e:
         print(f"[{datetime.now()}] ❌ Gagal ambil harga Toko: {e}")
         return None
 
-# === Ambil data candle dari Binance untuk RSI ===
+# === Ambil data candle dari Binance (untuk RSI) ===
 def get_binance_klines(symbol="BNBUSDT", interval="5m", limit=100):
     try:
         url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         data = response.json()
         closes = [float(candle[4]) for candle in data]
         return closes
@@ -57,7 +57,44 @@ def calculate_rsi(closes, period=14):
     rs = avg_gain / avg_loss
     return round(100 - (100 / (1 + rs)), 2)
 
-# === Simulasi / Real Order Beli ===
+# === Kirim real order ke Tokocrypto (LIMIT BUY) ===
+def order_real(price):
+    print(f"[{datetime.now()}] 📤 Mengirim order beli nyata...")
+
+    try:
+        base_url = "https://api.tokocrypto.com"
+        endpoint = "/open/v1/orders"
+        timestamp = str(int(time.time() * 1000))
+
+        body = {
+            "symbol": TRADING_PAIR,
+            "side": "BUY",
+            "type": "LIMIT",
+            "timeInForce": "GTC",
+            "price": f"{price:.2f}",
+            "origQty": "0.1",  # Ganti sesuai saldo
+            "timestamp": timestamp
+        }
+
+        query_string = '&'.join([f"{key}={body[key]}" for key in body])
+        signature = hmac.new(API_SECRET.encode('utf-8'), query_string.encode('utf-8'), hashlib.sha256).hexdigest()
+
+        headers = {
+            "X-MBX-APIKEY": API_KEY
+        }
+
+        body["signature"] = signature
+        response = requests.post(f"{base_url}{endpoint}", headers=headers, params=body)
+
+        if response.status_code == 200:
+            print(f"[{datetime.now()}] ✅ Order berhasil: {response.json()}")
+        else:
+            print(f"[{datetime.now()}] ❌ Order gagal: {response.text}")
+
+    except Exception as e:
+        print(f"[{datetime.now()}] ❌ Exception saat kirim order: {e}")
+
+# === Simulasi atau Real Order ===
 def place_order(price, rsi):
     tp = price * (1 + TP_PERCENT)
     sl = price * (1 - SL_PERCENT)
@@ -65,13 +102,11 @@ def place_order(price, rsi):
     print(log)
     with open("log.txt", "a") as f:
         f.write(log + "\n")
-
-    # Contoh endpoint POST order (BELUM AKTIFKAN)
-    # order_real(price)
+    order_real(price)
 
 # === Bot utama ===
 def run_bot():
-    print(f"[{datetime.now()}] 🔄 Mengecek kondisi pasar...")
+    print(f"\n[{datetime.now()}] 🔄 Mengecek kondisi pasar...")
     price = get_price_toko(TRADING_PAIR)
     closes = get_binance_klines(TRADING_PAIR, "5m", 100)
     rsi = calculate_rsi(closes, RSI_PERIOD)
@@ -85,13 +120,12 @@ def run_bot():
     else:
         print(f"[{datetime.now()}] ⚠️ Data tidak lengkap.")
 
-# === Looping terus-menerus ===
+# === Loop bot terus-menerus ===
 def start_bot():
-    print(f"[{datetime.now()}] 🚀 Bot RSI dimulai...")
+    print(f"[{datetime.now()}] 🚀 Bot RSI dimulai di background...")
     while True:
         run_bot()
         time.sleep(DELAY_SECONDS)
 
-# === Mulai bot ===
 if __name__ == "__main__":
     start_bot()
