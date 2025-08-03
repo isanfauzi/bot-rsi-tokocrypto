@@ -18,20 +18,20 @@ RSI_PERIOD = 14
 RSI_BUY_THRESHOLD = 30
 TP_PERCENT = 0.03
 SL_PERCENT = 0.02
-DELAY_SECONDS = 300  # setiap 5 menit
+DELAY_SECONDS = 300  # 5 menit
 
-# === Ambil harga dari Tokocrypto ===
-def get_price_toko(pair):
+# === Ambil harga dari Binance ===
+def get_price_binance(pair):
     try:
-        url = f"https://api.tokocrypto.com/open/v1/market/ticker/price?symbol={pair}"
+        url = f"https://api.binance.com/api/v3/ticker/price?symbol={pair}"
         response = requests.get(url, timeout=10)
         data = response.json()
-        return float(data["data"]["price"])
+        return float(data["price"])
     except Exception as e:
-        print(f"[{datetime.now()}] ❌ Gagal ambil harga Toko: {e}")
+        print(f"[{datetime.now()}] ❌ Gagal ambil harga Binance: {e}")
         return None
 
-# === Ambil data candle dari Binance (untuk RSI) ===
+# === Ambil candle Binance (untuk RSI) ===
 def get_binance_klines(symbol="BNBUSDT", interval="5m", limit=100):
     try:
         url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
@@ -57,10 +57,9 @@ def calculate_rsi(closes, period=14):
     rs = avg_gain / avg_loss
     return round(100 - (100 / (1 + rs)), 2)
 
-# === Kirim real order ke Tokocrypto (LIMIT BUY) ===
+# === Kirim order nyata ke Tokocrypto ===
 def order_real(price):
     print(f"[{datetime.now()}] 📤 Mengirim order beli nyata...")
-
     try:
         base_url = "https://api.tokocrypto.com"
         endpoint = "/open/v1/orders"
@@ -72,7 +71,7 @@ def order_real(price):
             "type": "LIMIT",
             "timeInForce": "GTC",
             "price": f"{price:.2f}",
-            "origQty": "0.1",  # Ganti sesuai saldo
+            "origQty": "0.1",  # Ubah sesuai kebutuhan
             "timestamp": timestamp
         }
 
@@ -90,11 +89,10 @@ def order_real(price):
             print(f"[{datetime.now()}] ✅ Order berhasil: {response.json()}")
         else:
             print(f"[{datetime.now()}] ❌ Order gagal: {response.text}")
-
     except Exception as e:
         print(f"[{datetime.now()}] ❌ Exception saat kirim order: {e}")
 
-# === Simulasi atau Real Order ===
+# === Simulasi atau Eksekusi order ===
 def place_order(price, rsi):
     tp = price * (1 + TP_PERCENT)
     sl = price * (1 - SL_PERCENT)
@@ -104,10 +102,10 @@ def place_order(price, rsi):
         f.write(log + "\n")
     order_real(price)
 
-# === Bot utama ===
+# === Logika utama ===
 def run_bot():
     print(f"\n[{datetime.now()}] 🔄 Mengecek kondisi pasar...")
-    price = get_price_toko(TRADING_PAIR)
+    price = get_price_binance(TRADING_PAIR)
     closes = get_binance_klines(TRADING_PAIR, "5m", 100)
     rsi = calculate_rsi(closes, RSI_PERIOD)
 
@@ -120,7 +118,7 @@ def run_bot():
     else:
         print(f"[{datetime.now()}] ⚠️ Data tidak lengkap.")
 
-# === Loop bot terus-menerus ===
+# === Jalankan loop ===
 def start_bot():
     print(f"[{datetime.now()}] 🚀 Bot RSI dimulai di background...")
     while True:
