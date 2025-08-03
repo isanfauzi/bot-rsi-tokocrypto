@@ -2,31 +2,35 @@ import requests
 import numpy as np
 import time
 from datetime import datetime
+from flask import Flask, jsonify
+import threading
 
-# Konfigurasi
+# ==== Konfigurasi ====
 TRADING_PAIR = "BNBUSDT"
 RSI_PERIOD = 14
 RSI_BUY_THRESHOLD = 30
 TP_PERCENT = 0.03
 SL_PERCENT = 0.02
-DELAY_SECONDS = 300  # 5 menit
 
-# Ambil harga dari Binance (karena Tokocrypto diblokir)
-def get_price_binance(pair):
+# ==== Flask App ====
+app = Flask(__name__)
+
+# ==== Ambil harga dari Tokocrypto ====
+def get_price_toko(pair):
     try:
-        url = f"https://api.binance.com/api/v3/ticker/price?symbol={pair}"
-        response = requests.get(url)
+        url = f"https://api.tokocrypto.com/open/v1/market/ticker/price?symbol={pair}"
+        response = requests.get(url, timeout=10)
         data = response.json()
-        return float(data["price"])
+        return float(data["data"]["price"])
     except Exception as e:
-        print(f"[{datetime.now()}] ❌ Gagal ambil harga Binance: {e}")
+        print(f"[{datetime.now()}] ❌ Gagal ambil harga Toko: {e}")
         return None
 
-# Ambil data candle dari Binance
+# ==== Ambil data candle dari Binance ====
 def get_binance_klines(symbol="BNBUSDT", interval="5m", limit=100):
     try:
         url = f"https://api.binance.com/api/v3/klines?symbol={symbol}&interval={interval}&limit={limit}"
-        response = requests.get(url)
+        response = requests.get(url, timeout=10)
         data = response.json()
         closes = [float(candle[4]) for candle in data]
         return closes
@@ -34,7 +38,7 @@ def get_binance_klines(symbol="BNBUSDT", interval="5m", limit=100):
         print(f"[{datetime.now()}] ❌ Gagal ambil kline Binance: {e}")
         return []
 
-# Hitung RSI
+# ==== Hitung RSI ====
 def calculate_rsi(closes, period=14):
     if len(closes) < period + 1:
         return None
@@ -48,7 +52,7 @@ def calculate_rsi(closes, period=14):
     rs = avg_gain / avg_loss
     return round(100 - (100 / (1 + rs)), 2)
 
-# Simulasi order beli
+# ==== Simulasi order beli ====
 def place_order(price, rsi):
     tp = price * (1 + TP_PERCENT)
     sl = price * (1 - SL_PERCENT)
@@ -57,10 +61,10 @@ def place_order(price, rsi):
     with open("log.txt", "a") as f:
         f.write(log + "\n")
 
-# Bot utama
+# ==== Bot Utama ====
 def run_bot():
     print(f"[{datetime.now()}] 🔄 Mengecek kondisi pasar...")
-    price = get_price_binance(TRADING_PAIR)
+    price = get_price_toko(TRADING_PAIR)
     closes = get_binance_klines(TRADING_PAIR, "5m", 100)
     rsi = calculate_rsi(closes, RSI_PERIOD)
 
@@ -73,13 +77,13 @@ def run_bot():
     else:
         print(f"[{datetime.now()}] ⚠️ Data tidak lengkap.")
 
-# Looping terus-menerus
-def start_bot():
-    print(f"[{datetime.now()}] 🚀 Bot RSI dimulai di background...")
-    while True:
-        run_bot()
-        time.sleep(DELAY_SECONDS)
+# ==== Endpoint untuk trigger bot ====
+@app.route("/run")
+def trigger_bot():
+    threading.Thread(target=run_bot).start()
+    return jsonify({"status": "Bot dijalankan", "time": str(datetime.now())})
 
-# Jalankan langsung
+# ==== Jalankan Web Service ====
 if __name__ == "__main__":
-    start_bot()
+    print(f"[{datetime.now()}] 🌐 Flask Web Service berjalan...")
+    app.run(host="0.0.0.0", port=8080)
