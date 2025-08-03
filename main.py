@@ -79,3 +79,5 @@ def start_bot():
     while True:
         run_bot()
         time.sleep(DELAY_SECONDS)
+if __name__ == '__main__':
+    start_bot()        
