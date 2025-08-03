@@ -11,15 +11,15 @@ TP_PERCENT = 0.03
 SL_PERCENT = 0.02
 DELAY_SECONDS = 300  # 5 menit
 
-# Ambil harga dari Tokocrypto
-def get_price_toko(pair):
+# Ambil harga dari Binance (karena Tokocrypto diblokir)
+def get_price_binance(pair):
     try:
-        url = f"https://api.tokocrypto.com/open/v1/market/ticker/price?symbol={pair}"
+        url = f"https://api.binance.com/api/v3/ticker/price?symbol={pair}"
         response = requests.get(url)
         data = response.json()
-        return float(data["data"]["price"])
+        return float(data["price"])
     except Exception as e:
-        print(f"[{datetime.now()}] ❌ Gagal ambil harga Toko: {e}")
+        print(f"[{datetime.now()}] ❌ Gagal ambil harga Binance: {e}")
         return None
 
 # Ambil data candle dari Binance
@@ -60,7 +60,7 @@ def place_order(price, rsi):
 # Bot utama
 def run_bot():
     print(f"[{datetime.now()}] 🔄 Mengecek kondisi pasar...")
-    price = get_price_toko(TRADING_PAIR)
+    price = get_price_binance(TRADING_PAIR)
     closes = get_binance_klines(TRADING_PAIR, "5m", 100)
     rsi = calculate_rsi(closes, RSI_PERIOD)
 
